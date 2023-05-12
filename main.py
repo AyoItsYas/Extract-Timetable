@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from openpyxl.worksheet.worksheet import Worksheet
     from openpyxl.cell.read_only import ReadOnlyCell
 
-    from datetime import date
+    from datetime import date, time
 
 import openpyxl
 import datetime
@@ -60,7 +60,7 @@ def filter_worksheet(worksheet: Worksheet) -> list[list[str]]:
             yield x
 
 
-def generate_dateframe(d: date):
+def generate_dateframe(d: date) -> date:
     delta = datetime.timedelta(days=1)
 
     while True:
@@ -74,7 +74,7 @@ def generate_dateframe(d: date):
             yield x
 
 
-def generate_timeframe():
+def generate_timeframe() -> time:
     for i in range(9, 18):
         yield datetime.time(i)
 
@@ -101,10 +101,9 @@ def generate_calendar_data(data: list[list[str]]) -> list[dict]:
 
     for _date, events in zip(dateframe, data):
         for start_time, (event, merge_flag) in zip(generate_timeframe(), events):
+            end_time = None if merge_flag else datetime.time(start_time.hour + 1)
             if span_flag:
                 calendar_data[-1]["end_time"] = datetime.time(start_time.hour + 1)
-            elif len(calendar_data) > 0 and calendar_data[-1]["end_time"] is None:
-                calendar_data[-1]["end_time"] = start_time
 
             if event:
                 event = format_event_name(event)
@@ -114,7 +113,7 @@ def generate_calendar_data(data: list[list[str]]) -> list[dict]:
                         "name": event,
                         "date": _date,
                         "start_time": start_time,
-                        "end_time": None,
+                        "end_time": end_time,
                     }
                 )
 
@@ -123,7 +122,7 @@ def generate_calendar_data(data: list[list[str]]) -> list[dict]:
     return calendar_data
 
 
-def main():
+def main() -> int:
     workbook: Workbook = openpyxl.load_workbook("./data/file.xlsx", data_only=True)
     worksheet: Worksheet = workbook.active
 
