@@ -135,7 +135,7 @@ def process_calendar_events(
     return calendar_events
 
 
-def main(input_file: str, *, output_file: str) -> int:
+def main(input_file: str, *, output_file: str, output_folder: str = None) -> int:
     workbook: Workbook = openpyxl.load_workbook(input_file, data_only=True)
     worksheet: Worksheet = workbook.active
 
@@ -187,6 +187,9 @@ def main(input_file: str, *, output_file: str) -> int:
 
         calendar.add_component(event)
 
+    output_file = (output_folder or "") + (
+        output_file if output_file else (summary + ".ics")
+    )
     with open(output_file, "wb") as file:
         file.write(calendar.to_ical())
 
@@ -198,9 +201,10 @@ if __name__ == "__main__":
 
     parser.add_argument("input")
     parser.add_argument("-o", "--output")
+    parser.add_argument("-of", "--output_folder")
 
     args = parser.parse_args()
 
-    exit(main(args.input, output_file=args.output or args.input + ".ics"))
+    exit(main(args.input, output_file=args.output, output_folder=args.output_folder))
 else:
     raise Exception("This file was not created to be imported")

@@ -7,12 +7,15 @@ fi
 
 file=$1
 
-curl -i -c "./data/.cookie.txt" "$line&download=1"
+mkdir -p ./.tmp
+mkdir -p ./calanders
+
+curl -i -c "./.tmp/.cookie.txt" "$line&download=1"
 
 i=1
 while read line; do
-  wget --cookies=on --load-cookies "./data/.cookie.txt" --keep-session-cookies "$line&download=1" -O "data/calander-$i.xlsx"
+  wget --cookies=on --load-cookies "./.tmp/.cookie.txt" --keep-session-cookies "$line&download=1" -O "./.tmp/calander-$i.xlsx"
 
-  python3 main.py "data/calander-$i.xlsx"
+  python3 main.py "./.tmp/calander-$i.xlsx" --output_folder "./calanders/"
   i=$((i+1))
 done < $file
