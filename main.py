@@ -35,9 +35,10 @@ def extract_aliases(worksheet: Worksheet) -> dict:
 
 
 def extract_start_point(worksheet: Worksheet) -> date:
+    pattern = r"\d+"
     for cell in worksheet["B"]:
         cell: Cell
-        if cell.value == 1:
+        if re.match(pattern, str(cell.value)):
             cell = cell.offset(column=1)
             return cell.value.date()
 
