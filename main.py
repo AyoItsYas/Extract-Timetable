@@ -104,7 +104,7 @@ def generate_calendar_data(data: list[list[str]]) -> list[dict]:
             if span_flag:
                 calendar_data[-1]["end_time"] = datetime.time(start_time.hour + 1)
             elif len(calendar_data) > 0 and calendar_data[-1]["end_time"] is None:
-                calendar_data[-1]["end_time"] = datetime.time(start_time.hour + 1)
+                calendar_data[-1]["end_time"] = start_time
 
             if event:
                 event = format_event_name(event)
