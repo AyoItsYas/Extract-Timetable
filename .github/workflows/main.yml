@@ -1,0 +1,26 @@
+on:
+  push:
+    branches:
+    - main
+
+jobs:
+  update_calanders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+
+      - name: save current date
+        run: |
+          bash ./scripts/update-calanders.sh timetables.index
+
+      - name: setup git config
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "<>"
+
+      - name: commit
+        run: |
+          git add .
+          git commit -m "Github-workflows : Updated calanders"
+          git push 
