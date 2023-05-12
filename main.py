@@ -100,6 +100,7 @@ def format_summary(event_name: str, aliases: dict) -> str:
     for word in event_name.split():
         if word in aliases.keys():
             return f"{word} - {event_name.replace(word, aliases[word])}"
+    return event_name
 
 
 def process_calendar_events(
@@ -109,16 +110,17 @@ def process_calendar_events(
     dateframe: Iterable[date],
     summary_formatter: Callable[[str], str],
 ) -> list[dict]:
-    calendar_events, merge_set = [], False
+    calendar_events = []
     for frame_date, column in zip(dateframe, data):
         for frame_time, cell in zip(timeframe, column):
             merge_flag = type(cell) is MergedCell
+            print(merge_flag, cell.value)
 
             start_time = frame_time
-            end_time = None if merge_flag else datetime.time(start_time.hour + 1)
+            end_time = datetime.time(start_time.hour + 1)
 
-            if merge_set:
-                calendar_events[-1]["end_time"] = datetime.time(start_time.hour + 1)
+            if merge_flag:
+                calendar_events[-1]["end_time"] = end_time
 
             if cell.value:
                 calendar_events.append(
@@ -129,8 +131,6 @@ def process_calendar_events(
                         "end_time": end_time,
                     }
                 )
-
-            merge_set = merge_flag and not merge_set
 
     return calendar_events
 
