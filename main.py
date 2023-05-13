@@ -208,6 +208,8 @@ def main(
     output_file = (output_folder or "") + (
         output_file if output_file else (summary + ".ics")
     )
+    output_file = output_file.replace("%SUMMARY", summary)
+
     with open(output_file, "wb") as file:
         file.write(calendar.to_ical())
 
@@ -220,7 +222,7 @@ if __name__ == "__main__":
     parser.add_argument("input")
     parser.add_argument("-o", "--output")
     parser.add_argument("-of", "--output_folder")
-    parser.add_argument("-f", "--filter")
+    parser.add_argument("-f", "--filter", type=bool, default=False)
     parser.add_argument(
         "--filter_type", default="contains", choices=["contains", "regex"]
     )

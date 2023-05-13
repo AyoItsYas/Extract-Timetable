@@ -14,8 +14,12 @@ curl -i -c "./.tmp/.cookie.txt" "$line&download=1"
 
 i=1
 while read line; do
-  wget --cookies=on --load-cookies "./.tmp/.cookie.txt" --keep-session-cookies "$line&download=1" -O "./.tmp/calander-$i.xlsx"
+  if [[ $line =~ [^/]*$ ]]; then
+    filename=${BASH_REMATCH[0]}
+  fi
 
-  python3 main.py "./.tmp/calander-$i.xlsx" --output_folder "./calanders/"
+  wget --cookies=on --load-cookies "./.tmp/.cookie.txt" --keep-session-cookies "$line&download=1" -O "./.tmp/$filename.xlsx"
+
+  python3 main.py "./.tmp/$filename.xlsx" --output "%SUMMARY -- ($filename).ics" --output_folder "./calanders/"
   i=$((i+1))
-done < $file
+done < "$file"
