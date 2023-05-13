@@ -228,10 +228,10 @@ def main(
         )
         print(text)
 
+        event = Event()
         for key, value in event_data.items():
-            event = Event()
             event.add(key, value)
-            calendar.add_component(event)
+        calendar.add_component(event)
 
     output_file = (output_folder or "") + (
         output_file if output_file else (summary + ".ics")
