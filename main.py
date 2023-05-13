@@ -96,11 +96,29 @@ def extract_data(
             yield x
 
 
-def format_summary(event_name: str, aliases: dict) -> str:
-    for word in event_name.split():
-        if word in aliases.keys():
-            return f"{word} - {event_name.replace(word, aliases[word])}"
-    return event_name
+def format_summary(
+    format_spec: str,
+    /,
+    event: str,
+    aliases: dict,
+    *,
+    specifer_key: str = "%",
+) -> str:
+    specifiers = {
+        "SUMMARY": event,
+    }
+
+    if ("ALIAS" in format_spec) or ("DESCRIPTION" in format_spec):
+        for word in event.split():
+            if word in aliases.keys():
+                specifiers["SUMMARY"] = event.replace(word, aliases[word])
+                specifiers["ALIAS"] = word
+                specifiers["DESCRIPTION"] = aliases[word]
+
+    for specifier, value in specifiers.items():
+        format_spec = format_spec.replace(specifer_key + specifier, value)
+
+    return format_spec
 
 
 def process_calendar_events(
@@ -139,8 +157,9 @@ def main(
     *,
     output_file: str,
     output_folder: str = None,
-    summary_filter: str,
-    summary_filter_type: str,
+    event_filter: str,
+    event_filter_type: str,
+    event_format_spec: str,
 ) -> int:
     workbook: Workbook = openpyxl.load_workbook(input_file, data_only=True)
     worksheet: Worksheet = workbook.active
@@ -155,7 +174,7 @@ def main(
 
     data = extract_data(worksheet, data_ranges=data_ranges)
 
-    summary_formatter = lambda x: format_summary(x, aliases)
+    event_formatter = lambda x: format_summary(event_format_spec, x, aliases)
 
     calendar = Calendar()
     calendar.add("summary", summary or input_file)
@@ -164,20 +183,20 @@ def main(
         data,
         timeframe=timeframe,
         dateframe=dateframe,
-        summary_formatter=summary_formatter,
+        summary_formatter=event_formatter,
     )
 
-    if summary_filter:
+    if event_filter:
         filter_constructor = lambda x: " ".join(
             y if type(y) is str else str(y) for y in x.values()
         )
-        if summary_filter_type == "contains":
+        if event_filter_type == "contains":
             calendar_data = filter(
-                lambda x: summary_filter in filter_constructor(x), calendar_data
+                lambda x: event_filter in filter_constructor(x), calendar_data
             )
-        elif summary_filter_type == "regex":
+        elif event_filter_type == "regex":
             calendar_data = filter(
-                lambda x: re.match(summary_filter, filter_constructor(x)), calendar_data
+                lambda x: re.match(event_filter, filter_constructor(x)), calendar_data
             )
 
     for data in calendar_data:
@@ -226,6 +245,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--filter_type", default="contains", choices=["contains", "regex"]
     )
+    parser.add_argument("--event_format_spec", default="%ALIAS - %SUMMARY")
 
     args = parser.parse_args()
 
@@ -233,8 +253,9 @@ if __name__ == "__main__":
         args.input,
         output_file=args.output,
         output_folder=args.output_folder,
-        summary_filter=args.filter,
-        summary_filter_type=args.filter_type,
+        event_filter=args.filter,
+        event_filter_type=args.filter_type,
+        event_format_spec=args.event_format_spec,
     )
     exit(status)
 else:
