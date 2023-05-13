@@ -79,7 +79,8 @@ def generate_dateframe(d: date) -> date:
 
 
 def extract_data(
-    worksheet: Worksheet, data_ranges: Iterable[Iterable[str, str]]
+    worksheet: Worksheet,
+    data_ranges: Iterable[Iterable[str, str]],
 ) -> list[list[str]]:
     def filter_function(x, y) -> tuple[tuple[Cell]]:
         return worksheet[x:y]
@@ -129,6 +130,12 @@ def process_calendar_events(
     summary_formatter: Callable[[str], str],
 ) -> list[dict]:
     calendar_events = []
+    datetime_constructor = lambda x, y: datetime.datetime.combine(
+        x,
+        y,
+        tzinfo=datetime.timezone(datetime.timedelta(hours=5, minutes=30)),
+    )
+
     for frame_date, column in zip(dateframe, data):
         for frame_time, cell in zip(timeframe, column):
             merge_flag = type(cell) is MergedCell
@@ -137,19 +144,40 @@ def process_calendar_events(
             end_time = datetime.time(start_time.hour + 1)
 
             if merge_flag:
-                calendar_events[-1]["end_time"] = end_time
-
-            if cell.value:
-                calendar_events.append(
-                    {
-                        "summary": summary_formatter(cell.value),
-                        "date": frame_date,
-                        "start_time": start_time,
-                        "end_time": end_time,
-                    }
+                calendar_events[-1]["dtend"] = datetime_constructor(
+                    frame_date, end_time
                 )
 
+            if cell.value:
+                event = {
+                    "summary": summary_formatter(cell.value),
+                    "dtstart": datetime_constructor(frame_date, start_time),
+                    "dtend": datetime_constructor(frame_date, end_time),
+                }
+                calendar_events.append(event)
+
     return calendar_events
+
+
+def filter_events(
+    events: Iterable[dict],
+    /,
+    event_filter: str,
+    *,
+    filter_type: str = None,
+) -> Iterable[dict]:
+    def filter_constructor(x: dict):
+        return " ".join(y if type(y) is str else str(y) for y in x.values())
+
+    filters = {
+        "contains": lambda x: event_filter in filter_constructor(x),
+        "regex": lambda x: re.match(event_filter, filter_constructor(x)),
+        "!startswith": lambda x: not filter_constructor(x).startswith(event_filter),
+    }
+
+    filter_function = filters.get(filter_type)
+
+    return filter(filter_function, events) if filter_function else events
 
 
 def main(
@@ -177,52 +205,33 @@ def main(
     event_formatter = lambda x: format_summary(event_format_spec, x, aliases)
 
     calendar = Calendar()
-    calendar.add("summary", summary or input_file)
+    calendar.add("summary", summary)
 
-    calendar_data = process_calendar_events(
+    calendar_events = process_calendar_events(
         data,
         timeframe=timeframe,
         dateframe=dateframe,
         summary_formatter=event_formatter,
     )
+    calendar_events = filter_events(calendar_events, "%", filter_type="!startswith")
 
     if event_filter:
-        filter_constructor = lambda x: " ".join(
-            y if type(y) is str else str(y) for y in x.values()
+        calendar_events = filter_events(
+            calendar_events,
+            event_filter,
+            filter_type=event_filter_type,
         )
-        if event_filter_type == "contains":
-            calendar_data = filter(
-                lambda x: event_filter in filter_constructor(x), calendar_data
-            )
-        elif event_filter_type == "regex":
-            calendar_data = filter(
-                lambda x: re.match(event_filter, filter_constructor(x)), calendar_data
-            )
 
-    for data in calendar_data:
-        text = f"{data['date']} {data['start_time']} {data['end_time']} >>> {data['summary']}"
+    for event_data in calendar_events:
+        text = (
+            f"{event_data['dtstart']} {event_data['dtend']} >>> {event_data['summary']}"
+        )
         print(text)
 
-        event = Event()
-        event.add("summary", data["summary"])
-        event.add(
-            "dtstart",
-            datetime.datetime.combine(
-                data["date"],
-                data["start_time"],
-                tzinfo=datetime.timezone(datetime.timedelta(hours=5, minutes=30)),
-            ),
-        )
-        event.add(
-            "dtend",
-            datetime.datetime.combine(
-                data["date"],
-                data["end_time"],
-                tzinfo=datetime.timezone(datetime.timedelta(hours=5, minutes=30)),
-            ),
-        )
-
-        calendar.add_component(event)
+        for key, value in event_data.items():
+            event = Event()
+            event.add(key, value)
+            calendar.add_component(event)
 
     output_file = (output_folder or "") + (
         output_file if output_file else (summary + ".ics")
