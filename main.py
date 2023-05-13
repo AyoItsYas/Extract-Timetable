@@ -114,7 +114,6 @@ def process_calendar_events(
     for frame_date, column in zip(dateframe, data):
         for frame_time, cell in zip(timeframe, column):
             merge_flag = type(cell) is MergedCell
-            print(merge_flag, cell.value)
 
             start_time = frame_time
             end_time = datetime.time(start_time.hour + 1)
@@ -135,7 +134,14 @@ def process_calendar_events(
     return calendar_events
 
 
-def main(input_file: str, *, output_file: str, output_folder: str = None) -> int:
+def main(
+    input_file: str,
+    *,
+    output_file: str,
+    output_folder: str = None,
+    summary_filter: str,
+    summary_filter_type: str,
+) -> int:
     workbook: Workbook = openpyxl.load_workbook(input_file, data_only=True)
     worksheet: Worksheet = workbook.active
 
@@ -161,10 +167,22 @@ def main(input_file: str, *, output_file: str, output_folder: str = None) -> int
         summary_formatter=summary_formatter,
     )
 
-    for data in calendar_data:
-        print(
-            data["date"], data["start_time"], data["end_time"], ">" * 3, data["summary"]
+    if summary_filter:
+        filter_constructor = lambda x: " ".join(
+            y if type(y) is str else str(y) for y in x.values()
         )
+        if summary_filter_type == "contains":
+            calendar_data = filter(
+                lambda x: summary_filter in filter_constructor(x), calendar_data
+            )
+        elif summary_filter_type == "regex":
+            calendar_data = filter(
+                lambda x: re.match(summary_filter, filter_constructor(x)), calendar_data
+            )
+
+    for data in calendar_data:
+        text = f"{data['date']} {data['start_time']} {data['end_time']} >>> {data['summary']}"
+        print(text)
 
         event = Event()
         event.add("summary", data["summary"])
@@ -202,9 +220,20 @@ if __name__ == "__main__":
     parser.add_argument("input")
     parser.add_argument("-o", "--output")
     parser.add_argument("-of", "--output_folder")
+    parser.add_argument("-f", "--filter")
+    parser.add_argument(
+        "--filter_type", default="contains", choices=["contains", "regex"]
+    )
 
     args = parser.parse_args()
 
-    exit(main(args.input, output_file=args.output, output_folder=args.output_folder))
+    status = main(
+        args.input,
+        output_file=args.output,
+        output_folder=args.output_folder,
+        summary_filter=args.filter,
+        summary_filter_type=args.filter_type,
+    )
+    exit(status)
 else:
     raise Exception("This file was not created to be imported")
