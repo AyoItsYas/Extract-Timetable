@@ -10,7 +10,7 @@ file=$1
 mkdir -p ./.tmp
 mkdir -p ./calanders
 
-curl -i -c "./.tmp/.cookie.txt" "$line&download=1"
+curl -i -c "./.tmp/.cookie.txt" "$line"
 
 i=1
 while read line; do

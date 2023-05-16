@@ -9,11 +9,12 @@ if TYPE_CHECKING:
     from openpyxl.worksheet.worksheet import Worksheet
     from openpyxl.cell import Cell
 
-    from datetime import date, time
+    from datetime import time
 
 import argparse
 import datetime
 import re
+from datetime import date
 
 import openpyxl
 from icalendar import Calendar, Event
@@ -22,7 +23,6 @@ from openpyxl.cell import MergedCell
 NSBM_FORMAT = {
     "summary_cell": "B3",
     "dateframe--size": 5,
-    "dateframe--start_cell": "C8",
     "timeframe--range": (9, 18),
     "data_range--marker": "B",
     "data_range--marker_pattern": r"\b\d+\b",
@@ -36,7 +36,6 @@ NSBM_FORMAT = {
 PLYM_FORMAT = {
     "summary_cell": "B3",
     "dateframe--size": 7,
-    "dateframe--start_cell": "D18",
     "timeframe--range": (9, 18),
     "data_range--marker": "B",
     "data_range--marker_pattern": r"Week \d+",
@@ -56,32 +55,66 @@ DEFINED_ANCHORS = {
 ANCHORS: dict = {}
 
 
+def value_iterator(
+    cells: Iterable[Cell],
+    *,
+    regex: str,
+    checks: list[Callable[[Cell], bool]] = [],
+) -> tuple[Cell, str]:
+    for cell in cells:
+        str_value = str(cell.value) if type(cell.value) is not str else cell.value
+        match = re.match(regex, str_value)
+
+        if not match:
+            continue
+        if any(not check(cell) for check in checks):
+            continue
+
+        match = (lambda a, b: str_value[a:b])(*match.span())
+        yield cell, match
+
+
 def extract_aliases(worksheet: Worksheet) -> dict:
     aliases = {}
 
-    for cell in worksheet[ANCHORS["alias_range--marker"]]:
+    for cell, match in value_iterator(
+        worksheet[ANCHORS["alias_range--marker"]],
+        regex=ANCHORS["alias_range--marker_pattern"],
+    ):
         cell: Cell
-        if cell.value and type(cell.value) == str:
-            if re.match(ANCHORS["alias_range--marker_pattern"], cell.value):
-                x = cell.offset(*ANCHORS["alias_range--offset"])
-                aliases[cell.value] = x.value
+        match: str
+
+        cell = cell.offset(*ANCHORS["alias_range--offset"])
+        aliases[match] = cell.value
 
     return aliases
 
 
 def extract_data_ranges(worksheet: Worksheet) -> tuple[str, str]:
-    for cell in worksheet[ANCHORS["data_range--marker"]]:
-        value = str(cell.value) if type(cell.value) is not str else cell.value
-        match = re.match(ANCHORS["data_range--marker_pattern"], value)
-        if not match:
-            continue
+    for cell, match in value_iterator(
+        worksheet[ANCHORS["data_range--marker"]],
+        regex=ANCHORS["data_range--marker_pattern"],
+    ):
+        cell: Cell
+        match: str
 
-        match = (lambda a, b: value[a:b])(*match.span())
+        str_value = str(cell.value) if type(cell.value) is not str else cell.value
 
-        if match == value:
+        if match == str_value:
             x = cell.offset(*ANCHORS["data_range--point_x_offset"]).coordinate
             y = cell.offset(*ANCHORS["data_range--point_y_offset"]).coordinate
             yield x, y
+
+
+def extract_dateframe_start(
+    worksheet: Worksheet, data_ranges: Iterable[Iterable[str]]
+) -> date:
+    cords = tuple(data_ranges)[0][0]
+
+    cell: Cell = worksheet[cords]
+    cell = cell.offset(-1, 0)
+
+    return cell.value.date()
 
 
 def generate_timeframe() -> time:
@@ -110,12 +143,9 @@ def extract_data(
     worksheet: Worksheet,
     data_ranges: Iterable[Iterable[str, str]],
 ) -> list[list[str]]:
-    def cell_iterator(x, y) -> tuple[tuple[Cell]]:
-        return worksheet[x:y]
-
     data = []
     for filter_range in data_ranges:
-        data.append(cell_iterator(*filter_range))
+        data.append((lambda x, y: worksheet[x:y])(*filter_range))
 
     for dr in data:
         for i in range(5):
@@ -232,9 +262,10 @@ def main(
     summary = worksheet[ANCHORS["summary_cell"]].value
     aliases = extract_aliases(worksheet)
     data_ranges = extract_data_ranges(worksheet)
+    dateframe_start = extract_dateframe_start(worksheet, extract_data_ranges(worksheet))
 
     timeframe = generate_timeframe()
-    dateframe = generate_dateframe(worksheet[ANCHORS["dateframe--start_cell"]].value)
+    dateframe = generate_dateframe(dateframe_start)
 
     data = extract_data(worksheet, data_ranges=data_ranges)
 
@@ -268,15 +299,17 @@ def main(
             event.add(key, value)
         calendar.add_component(event)
 
+    def sanatize_file_name(path: str) -> str:
+        return re.sub(r"[<>:\"/\\|*]", "", path)
+
+    output_file = sanatize_file_name(output_file) if output_file else None
+
     output_file = (output_folder or "") + (
         output_file if output_file else (summary + ".ics")
     )
     output_file = output_file.replace(r"%SUMMARY%", summary)
 
-    def sanatize_file_path(path: str) -> str:
-        return re.sub(r"[<>:\"/\\|?*]", "", path)
-
-    with open(sanatize_file_path(output_file), "wb+") as file:
+    with open(output_file, "wb+") as file:
         file.write(calendar.to_ical())
 
     return 0
