@@ -19,48 +19,74 @@ import openpyxl
 from icalendar import Calendar, Event
 from openpyxl.cell import MergedCell
 
+NSBM_FORMAT = {
+    "summary_cell": "B3",
+    "dateframe--size": 5,
+    "dateframe--start_cell": "C8",
+    "timeframe--range": (9, 18),
+    "data_range--marker": "B",
+    "data_range--marker_pattern": r"\b\d+\b",
+    "data_range--point_x_offset": (1, 1),
+    "data_range--point_y_offset": (8, 5),
+    "alias_range--marker_pattern": r"\b[A-Z]+\b",
+    "alias_range--marker": "B",
+    "alias_range--offset": (0, 1),
+}
+
+PLYM_FORMAT = {
+    "summary_cell": "B3",
+    "dateframe--size": 7,
+    "dateframe--start_cell": "D18",
+    "timeframe--range": (9, 18),
+    "data_range--marker": "B",
+    "data_range--marker_pattern": r"Week \d+",
+    "data_range--point_x_offset": (1, 2),
+    "data_range--point_y_offset": (8, 8),
+    "alias_range--marker_pattern": r"PUSL\d{4}",
+    "alias_range--marker": "B",
+    "alias_range--offset": (0, 2),
+}
+
+DEFINED_ANCHORS = {
+    "NSBM": NSBM_FORMAT,
+    "PLYM": PLYM_FORMAT,
+}
+
+
+ANCHORS: dict = {}
+
 
 def extract_aliases(worksheet: Worksheet) -> dict:
-    pattern = r"\b[A-Z]+\b"
     aliases = {}
 
-    for cell in worksheet["B"]:
+    for cell in worksheet[ANCHORS["alias_range--marker"]]:
         cell: Cell
         if cell.value and type(cell.value) == str:
-            if re.match(pattern, cell.value):
-                x = cell.offset(column=1)
+            if re.match(ANCHORS["alias_range--marker_pattern"], cell.value):
+                x = cell.offset(*ANCHORS["alias_range--offset"])
                 aliases[cell.value] = x.value
 
     return aliases
 
 
-def extract_start_point(worksheet: Worksheet) -> date:
-    pattern = r"\d+"
-    for cell in worksheet["B"]:
-        cell: Cell
-        if re.match(pattern, str(cell.value)):
-            cell = cell.offset(column=1)
-            return cell.value.date()
-
-
 def extract_data_ranges(worksheet: Worksheet) -> tuple[str, str]:
-    pattern = r"\d+"
-    data_ranges = []
+    for cell in worksheet[ANCHORS["data_range--marker"]]:
+        value = str(cell.value) if type(cell.value) is not str else cell.value
+        match = re.match(ANCHORS["data_range--marker_pattern"], value)
+        if not match:
+            continue
 
-    for cell in worksheet["B"]:
-        cell: Cell
-        if cell.value and type(cell.value) == int:
-            if re.match(pattern, str(cell.value)):
-                x = cell.offset(row=1, column=1).coordinate
-                y = cell.offset(row=8, column=5).coordinate
-                yield x, y
+        match = (lambda a, b: value[a:b])(*match.span())
 
-    return data_ranges
+        if match == value:
+            x = cell.offset(*ANCHORS["data_range--point_x_offset"]).coordinate
+            y = cell.offset(*ANCHORS["data_range--point_y_offset"]).coordinate
+            yield x, y
 
 
 def generate_timeframe() -> time:
     while True:
-        for i in range(9, 18):
+        for i in range(*ANCHORS["timeframe--range"]):
             yield datetime.time(i)
 
 
@@ -71,7 +97,9 @@ def generate_dateframe(d: date) -> date:
         x = d
         d += delta
 
-        if x.weekday() != 4:
+        if ANCHORS["dateframe--size"] == 7:
+            yield x
+        elif x.weekday() != 4:
             yield x
         else:
             d += delta * 2
@@ -82,12 +110,12 @@ def extract_data(
     worksheet: Worksheet,
     data_ranges: Iterable[Iterable[str, str]],
 ) -> list[list[str]]:
-    def filter_function(x, y) -> tuple[tuple[Cell]]:
+    def cell_iterator(x, y) -> tuple[tuple[Cell]]:
         return worksheet[x:y]
 
     data = []
     for filter_range in data_ranges:
-        data.append(filter_function(*filter_range))
+        data.append(cell_iterator(*filter_range))
 
     for dr in data:
         for i in range(5):
@@ -103,23 +131,32 @@ def format_summary(
     event: str,
     aliases: dict,
     *,
-    specifer_key: str = "%",
+    specifier_key: str = "%",
 ) -> str:
     specifiers = {
         "SUMMARY": event,
     }
 
+    format_spec = format_spec.split()
+    format_spec = [
+        x.strip(specifier_key)
+        for x in filter(
+            lambda x: x.startswith(specifier_key) and x.endswith(specifier_key),
+            format_spec,
+        )
+    ]
+
     if ("ALIAS" in format_spec) or ("DESCRIPTION" in format_spec):
         for word in event.split():
-            if word in aliases.keys():
-                specifiers["SUMMARY"] = event.replace(word, aliases[word])
-                specifiers["ALIAS"] = word
-                specifiers["DESCRIPTION"] = aliases[word]
+            for alias in aliases.keys():
+                if alias in word:
+                    specifiers["SUMMARY"] = event.replace(word, aliases[alias])
+                    specifiers["ALIAS"] = alias
+                    specifiers["DESCRIPTION"] = aliases[alias]
 
-    for specifier, value in specifiers.items():
-        format_spec = format_spec.replace(specifer_key + specifier, value)
+    format_spec = [specifiers.get(spec, "") for spec in format_spec]
 
-    return format_spec
+    return " - ".join(filter(lambda x: type(x) is str and len(x) > 0, format_spec))
 
 
 def process_calendar_events(
@@ -184,7 +221,7 @@ def main(
     input_file: str,
     *,
     output_file: str,
-    output_folder: str = None,
+    output_folder: str,
     event_filter: str,
     event_filter_type: str,
     event_format_spec: str,
@@ -192,17 +229,16 @@ def main(
     workbook: Workbook = openpyxl.load_workbook(input_file, data_only=True)
     worksheet: Worksheet = workbook.active
 
-    summary = worksheet["B3"].value
+    summary = worksheet[ANCHORS["summary_cell"]].value
     aliases = extract_aliases(worksheet)
     data_ranges = extract_data_ranges(worksheet)
-    timeframe_start = extract_start_point(worksheet)
 
     timeframe = generate_timeframe()
-    dateframe = generate_dateframe(timeframe_start)
+    dateframe = generate_dateframe(worksheet[ANCHORS["dateframe--start_cell"]].value)
 
     data = extract_data(worksheet, data_ranges=data_ranges)
 
-    event_formatter = lambda x: format_summary(event_format_spec, x, aliases)
+    event_formatter = lambda event: format_summary(event_format_spec, event, aliases)
 
     calendar = Calendar()
     calendar.add("summary", summary)
@@ -213,7 +249,6 @@ def main(
         dateframe=dateframe,
         summary_formatter=event_formatter,
     )
-    calendar_events = filter_events(calendar_events, "%", filter_type="!startswith")
 
     if event_filter:
         calendar_events = filter_events(
@@ -236,9 +271,12 @@ def main(
     output_file = (output_folder or "") + (
         output_file if output_file else (summary + ".ics")
     )
-    output_file = output_file.replace("%SUMMARY", summary)
+    output_file = output_file.replace(r"%SUMMARY%", summary)
 
-    with open(output_file, "wb") as file:
+    def sanatize_file_path(path: str) -> str:
+        return re.sub(r"[<>:\"/\\|?*]", "", path)
+
+    with open(sanatize_file_path(output_file), "wb+") as file:
         file.write(calendar.to_ical())
 
     return 0
@@ -250,13 +288,18 @@ if __name__ == "__main__":
     parser.add_argument("input")
     parser.add_argument("-o", "--output")
     parser.add_argument("-of", "--output_folder")
+
     parser.add_argument("-f", "--filter", type=bool, default=False)
     parser.add_argument(
         "--filter_type", default="contains", choices=["contains", "regex"]
     )
-    parser.add_argument("--event_format_spec", default="%ALIAS - %SUMMARY")
+    parser.add_argument("--event_format_spec", default=r"%ALIAS% %SUMMARY%")
+
+    parser.add_argument("--anchor", default="NSBM", choices=DEFINED_ANCHORS.keys())
 
     args = parser.parse_args()
+
+    ANCHORS = DEFINED_ANCHORS[args.anchor]
 
     status = main(
         args.input,
