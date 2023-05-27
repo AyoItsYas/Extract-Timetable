@@ -32,6 +32,5 @@ jobs:
 
       - name: Commit
         run: |
-          git add .
-          git commit -m "Github-workflows : Updated calanders"
-          git push
+          (git commit -m "GitHub Workflows: Dummy Commit" | grep "Changes not staged for commit") && git add .
+          (git commit -m "GitHub Workflows: Update Calanders" | grep "changed") && git push
