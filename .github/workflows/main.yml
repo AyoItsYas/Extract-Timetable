@@ -1,7 +1,9 @@
 on:
   push:
     branches:
-    - main
+      - main
+  schedule:
+    - cron: "0 0 * * *"
 
 jobs:
   update_calanders:
@@ -14,11 +16,11 @@ jobs:
         uses: actions/setup-python@v4.6.0
         with:
           python-version-file: .python-version
-        
+
       - name: Setup Packages
         run: |
           python3 -m pip install -r requirements.txt
-          
+
       - name: Update Calanders
         run: |
           bash ./scripts/update-calanders.sh timetables.index
@@ -32,4 +34,4 @@ jobs:
         run: |
           git add .
           git commit -m "Github-workflows : Updated calanders"
-          git push 
+          git push
