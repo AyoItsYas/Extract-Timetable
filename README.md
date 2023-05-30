@@ -26,7 +26,10 @@ Subscribe to the calander feed using prefered calander software. Below steps are
 1. Go to your [google calander settings](https://calendar.google.com/calendar/).
 2. Under the category "Add calander" select "From URL"
 3. Paste the feed URL and add your calander.
+4. Enable calandar syncing
 
 ![imageedit_2_8158226585](https://github.com/AyoItsYas/extract-timetable/assets/50617221/755ce2b9-da39-4608-bc3b-e64404228a7a)
 
 ![imageedit_7_4703974039](https://github.com/AyoItsYas/extract-timetable/assets/50617221/978109fd-2a2d-4373-99ba-03d26fe0427e)
+
+![imageedit_21_3752005783](https://github.com/AyoItsYas/extract-timetable/assets/50617221/5bf2dce6-7af9-4f7e-98b9-19954ea6a89a)
