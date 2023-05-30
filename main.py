@@ -25,26 +25,28 @@ from openpyxl.cell import MergedCell
 NSBM_FORMAT = {
     "summary_cell": "B3",
     "dateframe--size": 5,
+    "dateframe--start_offset": (-1, 0),
     "timeframe--range": (9, 18),
     "data_range--marker": "B",
     "data_range--marker_pattern": r"\b\d+\b",
     "data_range--point_x_offset": (1, 1),
     "data_range--point_y_offset": (8, 5),
-    "alias_range--marker_pattern": r"\b[A-Z]+\b",
     "alias_range--marker": "B",
+    "alias_range--marker_pattern": r"\b[A-Z]+\b",
     "alias_range--offset": (0, 1),
 }
 
 PLYM_FORMAT = {
     "summary_cell": "B3",
     "dateframe--size": 7,
+    "dateframe--start_offset": (-2, 0),
     "timeframe--range": (9, 18),
     "data_range--marker": "B",
     "data_range--marker_pattern": r"Week \d+",
     "data_range--point_x_offset": (1, 2),
     "data_range--point_y_offset": (8, 8),
-    "alias_range--marker_pattern": r"PUSL\d{4}",
     "alias_range--marker": "B",
+    "alias_range--marker_pattern": r"PUSL\d{4}",
     "alias_range--offset": (0, 2),
 }
 
@@ -114,7 +116,8 @@ def extract_dateframe_start(
     cords = tuple(data_ranges)[0][0]
 
     cell: Cell = worksheet[cords]
-    cell = cell.offset(-1, 0)
+
+    cell = cell.offset(*ANCHORS["dateframe--start_offset"])
 
     return cell.value.date()
 
@@ -259,60 +262,67 @@ def main(
     event_format_spec: str,
 ) -> int:
     workbook: Workbook = openpyxl.load_workbook(input_file, data_only=True)
-    worksheet: Worksheet = workbook.active
 
-    summary = worksheet[ANCHORS["summary_cell"]].value
-    aliases = extract_aliases(worksheet)
-    data_ranges = extract_data_ranges(worksheet)
-    dateframe_start = extract_dateframe_start(worksheet, extract_data_ranges(worksheet))
+    for worksheet in workbook.worksheets:
+        try:
+            summary = worksheet[ANCHORS["summary_cell"]].value
+            aliases = extract_aliases(worksheet)
+            data_ranges = extract_data_ranges(worksheet)
+            dateframe_start = extract_dateframe_start(
+                worksheet, extract_data_ranges(worksheet)
+            )
 
-    timeframe = generate_timeframe()
-    dateframe = generate_dateframe(dateframe_start)
+            timeframe = generate_timeframe()
+            dateframe = generate_dateframe(dateframe_start)
 
-    data = extract_data(worksheet, data_ranges=data_ranges)
+            data = extract_data(worksheet, data_ranges=data_ranges)
 
-    event_formatter = lambda event: format_summary(event_format_spec, event, aliases)
+            event_formatter = lambda event: format_summary(
+                event_format_spec, event, aliases
+            )
 
-    calendar = Calendar()
-    calendar.add("summary", summary)
+            calendar = Calendar()
+            calendar.add("summary", summary)
 
-    calendar_events = process_calendar_events(
-        data,
-        timeframe=timeframe,
-        dateframe=dateframe,
-        summary_formatter=event_formatter,
-    )
+            calendar_events = process_calendar_events(
+                data,
+                timeframe=timeframe,
+                dateframe=dateframe,
+                summary_formatter=event_formatter,
+            )
 
-    if event_filter:
-        calendar_events = filter_events(
-            calendar_events,
-            event_filter,
-            filter_type=event_filter_type,
-        )
+            if event_filter:
+                calendar_events = filter_events(
+                    calendar_events,
+                    event_filter,
+                    filter_type=event_filter_type,
+                )
 
-    for event_data in calendar_events:
-        text = (
-            f"{event_data['dtstart']} {event_data['dtend']} >>> {event_data['summary']}"
-        )
-        print(text)
+            print(f"\nSummary: {summary}\n")
 
-        event = Event()
-        for key, value in event_data.items():
-            event.add(key, value)
-        calendar.add_component(event)
+            for event_data in calendar_events:
+                text = f"{event_data['dtstart']} {event_data['dtend']} >>> {event_data['summary']}"
+                print(text)
 
-    def sanatize_file_name(path: str) -> str:
-        return re.sub(r"[<>:\"/\\|*]", "", path)
+                event = Event()
+                for key, value in event_data.items():
+                    event.add(key, value)
+                calendar.add_component(event)
 
-    output_file = sanatize_file_name(output_file) if output_file else None
+            def sanatize_name(path: str) -> str:
+                return re.sub(r"[<>:\"/\\|*]", " ", path)
 
-    output_file = (output_folder or "") + (
-        output_file if output_file else (summary + ".ics")
-    )
-    output_file = output_file.replace(r"%SUMMARY%", summary)
+            save_path = output_folder or ""
+            save_path += output_file if output_file else sanatize_name(summary + ".ics")
 
-    with open(output_file, "wb+") as file:
-        file.write(calendar.to_ical())
+            save_path = save_path.replace(r"%SUMMARY%", sanatize_name(summary))
+
+            with open(save_path, "wb+") as file:
+                file.write(calendar.to_ical())
+
+        except Exception as e:
+            print(f"\nError: {e}")
+            print(f"Worksheet: {worksheet.title}")
 
     return 0
 

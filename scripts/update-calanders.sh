@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ $# -ne 1 ]; then
-  echo "Usage: $0 <filename>"
+  echo "Usage: $0 <FILENAME>"
   exit 1
 fi
 
@@ -15,11 +15,14 @@ curl -i -c "./.tmp/.cookie.txt" "$line"
 i=1
 while read line; do
   if [[ $line =~ [^/]*$ ]]; then
-    filename=${BASH_REMATCH[0]}
+    ANCHOR=$(echo $line | cut -d' ' -f1)
+    HREF=$(echo $line | cut -d' ' -f2)
+    FILENAME=$(echo $HREF | rev | cut -d'/' -f1 | rev)
   fi
 
-  wget --cookies=on --load-cookies "./.tmp/.cookie.txt" --keep-session-cookies "$line&download=1" -O "./.tmp/$filename.xlsx"
+  wget --cookies=on --load-cookies "./.tmp/.cookie.txt" --keep-session-cookies "$HREF&download=1" -O "./.tmp/$FILENAME.xlsx"
 
-  python3 main.py "./.tmp/$filename.xlsx" --output "%SUMMARY% -- ($filename).ics" --output_folder "./calanders/"
+  python3 main.py "./.tmp/$FILENAME.xlsx" --output "%SUMMARY% -- ($FILENAME).ics" --output_folder "./calanders/" --anchor "$ANCHOR"
   i=$((i+1))
+  echo "$ANCHOR $HREF $FILENAME"
 done < "$file"
