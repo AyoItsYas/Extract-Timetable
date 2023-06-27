@@ -50,9 +50,24 @@ PLYM_FORMAT = {
     "alias_range--offset": (0, 2),
 }
 
+NSBM_FOB_FORMAT = {
+    "summary_cell": "A2",
+    "dateframe--size": 5,
+    "dateframe--start_offset": (-2, 2),
+    "timeframe--range": (9, 18, 2),
+    "data_range--marker": "A",
+    "data_range--marker_pattern": r"Week \d+",
+    "data_range--point_x_offset": (2, 2),
+    "data_range--point_y_offset": (5, 6),
+    "alias_range--marker": "A",
+    "alias_range--marker_pattern": r"\b[A-Z]{3}_\d{4}\b",
+    "alias_range--offset": (0, 1),
+}
+
 DEFINED_ANCHORS = {
     "NSBM": NSBM_FORMAT,
     "PLYM": PLYM_FORMAT,
+    "NSBM_FOB": NSBM_FOB_FORMAT,
 }
 
 
@@ -118,6 +133,8 @@ def extract_dateframe_start(
     cell: Cell = worksheet[cords]
 
     cell = cell.offset(*ANCHORS["dateframe--start_offset"])
+
+    print(cell)
 
     return cell.value.date()
 
@@ -323,6 +340,8 @@ def main(
         except Exception as e:
             print(f"\nError: {e}")
             print(f"Worksheet: {worksheet.title}")
+
+            raise e
 
     return 0
 

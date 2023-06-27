@@ -16,6 +16,7 @@ jobs:
         uses: actions/setup-python@v4.6.0
         with:
           python-version-file: .python-version
+          cache: "pip"
 
       - name: Setup Packages
         run: |
