@@ -103,8 +103,16 @@ def extract_aliases(worksheet: Worksheet) -> dict:
         cell: Cell
         match: str
 
+        try:
+            if len(cell.value.split()) > 1:
+                continue
+        except (AttributeError, ValueError, TypeError):
+            continue
+
         cell = cell.offset(*ANCHORS["alias_range--offset"])
         aliases[match] = cell.value
+
+    print(aliases)
 
     return aliases
 
@@ -318,7 +326,9 @@ def main(
             print(f"\nSummary: {summary}\n")
 
             for event_data in calendar_events:
-                text = f"{event_data['dtstart']} {event_data['dtend']} >>> {event_data['summary']}"
+                text = f"{event_data['dtstart']} {event_data['dtend']} >>> {event_data['summary']}".replace(
+                    "\n", " "
+                )
                 print(text)
 
                 event = Event()
