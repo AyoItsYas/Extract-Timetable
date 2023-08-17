@@ -112,8 +112,6 @@ def extract_aliases(worksheet: Worksheet) -> dict:
         cell = cell.offset(*ANCHORS["alias_range--offset"])
         aliases[match] = cell.value
 
-    print(aliases)
-
     return aliases
 
 
@@ -141,8 +139,6 @@ def extract_dateframe_start(
     cell: Cell = worksheet[cords]
 
     cell = cell.offset(*ANCHORS["dateframe--start_offset"])
-
-    print(cell)
 
     return cell.value.date()
 
