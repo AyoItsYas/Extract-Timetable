@@ -23,7 +23,7 @@ from icalendar import Calendar, Event
 from openpyxl.cell import MergedCell
 
 NSBM_FORMAT = {
-    "summary_cell": "B3",
+    "summary_cells": ("B3",),
     "dateframe--size": 5,
     "dateframe--start_offset": (-1, 0),
     "timeframe--range": (9, 18),
@@ -37,7 +37,7 @@ NSBM_FORMAT = {
 }
 
 PLYM_FORMAT = {
-    "summary_cell": "B3",
+    "summary_cells": ("B3",),
     "dateframe--size": 7,
     "dateframe--start_offset": (-2, 0),
     "timeframe--range": (9, 18),
@@ -50,8 +50,22 @@ PLYM_FORMAT = {
     "alias_range--offset": (0, 2),
 }
 
+PLYM_FORMAT_2 = {
+    "summary_cells": ("B1", "B2"),
+    "dateframe--size": 7,
+    "dateframe--start_offset": (-1, 0),
+    "timeframe--range": (9, 18),
+    "data_range--marker": "B",
+    "data_range--marker_pattern": r"Week \d+",
+    "data_range--point_x_offset": (1, 2),
+    "data_range--point_y_offset": (8, 8),
+    "alias_range--marker": "B",
+    "alias_range--marker_pattern": r"PUSL\d{4}",
+    "alias_range--offset": (0, 2),
+}
+
 NSBM_FOB_FORMAT = {
-    "summary_cell": "A2",
+    "summary_cells": ("A2",),
     "dateframe--size": 5,
     "dateframe--start_offset": (-2, 2),
     "timeframe--range": (9, 18, 2),
@@ -67,6 +81,7 @@ NSBM_FOB_FORMAT = {
 DEFINED_ANCHORS = {
     "NSBM": NSBM_FORMAT,
     "PLYM": PLYM_FORMAT,
+    "PLYM_2": PLYM_FORMAT_2,
     "NSBM_FOB": NSBM_FOB_FORMAT,
 }
 
@@ -139,7 +154,7 @@ def extract_dateframe_start(
     cell: Cell = worksheet[cords]
 
     cell = cell.offset(*ANCHORS["dateframe--start_offset"])
-
+    print(cell.value, cell)
     return cell.value.date()
 
 
@@ -286,7 +301,12 @@ def main(
 
     for worksheet in workbook.worksheets:
         try:
-            summary = worksheet[ANCHORS["summary_cell"]].value
+            summary_cells = [x for x in ANCHORS["summary_cells"]]
+            summary = " ".join(
+                str(worksheet[x].value) for x in summary_cells if worksheet[x].value
+            )
+            summary = summary.replace("\n", "")
+
             aliases = extract_aliases(worksheet)
             data_ranges = extract_data_ranges(worksheet)
             dateframe_start = extract_dateframe_start(
