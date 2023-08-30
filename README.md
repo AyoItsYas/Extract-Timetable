@@ -1,4 +1,4 @@
-# extract-timetable
+# Extract-Timetable
 
 Fed up of clicking on an excel sheet everytime you want to check your lecture schedule? Well I wrote something to make your life a bit easier.
 Below is a curated collection of lecture schedules that update automatically and publishes lecture schedules.
