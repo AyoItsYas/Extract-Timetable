@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 import argparse
 import datetime
+import dateutil.parser
 import re
 from datetime import date
 
@@ -78,11 +79,26 @@ NSBM_FOB_FORMAT = {
     "alias_range--offset": (0, 1),
 }
 
+NSBM_FOB_FORMAT_VU = {
+    "summary_cells": ("A1",),
+    "dateframe--size": 7,
+    "dateframe--start_offset": (-2, 0),
+    "timeframe--range": (9, 18),
+    "data_range--marker": "A",
+    "data_range--marker_pattern": r"Week \d+",
+    "data_range--point_x_offset": (0, 2),
+    "data_range--point_y_offset": (7, 8),
+    "alias_range--marker": "Z",
+    "alias_range--marker_pattern": r"BM",
+    "alias_range--offset": (0, 1),
+}
+
 DEFINED_ANCHORS = {
     "NSBM": NSBM_FORMAT,
     "PLYM": PLYM_FORMAT,
     "PLYM_2": PLYM_FORMAT_2,
     "NSBM_FOB": NSBM_FOB_FORMAT,
+    "NSBM_FOB_VU": NSBM_FOB_FORMAT_VU,
 }
 
 
@@ -149,13 +165,16 @@ def extract_data_ranges(worksheet: Worksheet) -> tuple[str, str]:
 def extract_dateframe_start(
     worksheet: Worksheet, data_ranges: Iterable[Iterable[str]]
 ) -> date:
-    cords = tuple(data_ranges)[0][0]
+    cords = list(data_ranges)[0][0]
 
     cell: Cell = worksheet[cords]
 
     cell = cell.offset(*ANCHORS["dateframe--start_offset"])
     print(cell.value, cell)
-    return cell.value.date()
+    try:
+        return cell.value.date()
+    except AttributeError:
+        return dateutil.parser.parse(str(cell.value))
 
 
 def generate_timeframe() -> time:
