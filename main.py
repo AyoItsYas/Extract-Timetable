@@ -93,12 +93,27 @@ NSBM_FOB_FORMAT_VU = {
     "alias_range--offset": (0, 1),
 }
 
+UGC_FORMAT = {
+    "summary_cells": ("B3",),
+    "dateframe--size": 5,
+    "dateframe--start_offset": (-1, 0),
+    "timeframe--range": (9, 18),
+    "data_range--marker": "B",
+    "data_range--marker_pattern": r"\b\d+\b",
+    "data_range--point_x_offset": (1, 1),
+    "data_range--point_y_offset": (8, 5),
+    "alias_range--marker": "G",
+    "alias_range--marker_pattern": r"\b[A-Z]+\b",
+    "alias_range--offset": (0, -3),
+}
+
 DEFINED_ANCHORS = {
     "NSBM": NSBM_FORMAT,
     "PLYM": PLYM_FORMAT,
     "PLYM_2": PLYM_FORMAT_2,
     "NSBM_FOB": NSBM_FOB_FORMAT,
     "NSBM_FOB_VU": NSBM_FOB_FORMAT_VU,
+    "UGC": UGC_FORMAT,
 }
 
 
@@ -170,7 +185,6 @@ def extract_dateframe_start(
     cell: Cell = worksheet[cords]
 
     cell = cell.offset(*ANCHORS["dateframe--start_offset"])
-    print(cell.value, cell)
     try:
         return cell.value.date()
     except AttributeError:
@@ -318,7 +332,12 @@ def main(
 ) -> int:
     workbook: Workbook = openpyxl.load_workbook(input_file, data_only=True)
 
-    for worksheet in workbook.worksheets:
+    print(f"Extracting lecture schedule from workbook: {input_file}")
+    n_worksheets = len(workbook.worksheets)
+
+    for i, worksheet in enumerate(workbook.worksheets):
+        print(f"Extracting from workbook {i + 1}/{n_worksheets}")
+
         try:
             summary_cells = [x for x in ANCHORS["summary_cells"]]
             summary = " ".join(
@@ -358,13 +377,10 @@ def main(
                     filter_type=event_filter_type,
                 )
 
-            print(f"\nSummary: {summary}\n")
-
             for event_data in calendar_events:
                 text = f"{event_data['dtstart']} {event_data['dtend']} >>> {event_data['summary']}".replace(
                     "\n", " "
                 )
-                print(text)
 
                 event = Event()
                 for key, value in event_data.items():
@@ -378,15 +394,18 @@ def main(
             save_path += output_file if output_file else sanatize_name(summary + ".ics")
 
             save_path = save_path.replace(r"%SUMMARY%", sanatize_name(summary))
+            save_path = save_path.replace(r"%WS_TITLE%", sanatize_name(worksheet.title))
 
             with open(save_path, "wb+") as file:
                 file.write(calendar.to_ical())
 
+            print(
+                f"Successfully extracted lecture schedule '{summary} - {worksheet.title}'"
+            )
         except Exception as e:
-            print(f"\nError: {e}")
-            print(f"Worksheet: {worksheet.title}")
-
-            raise e
+            print(
+                f"Error generating iCal from worksheet: {worksheet.title} worksheet might not be a valid timetable or anchors might be mis-matched"
+            )
 
     return 0
 

@@ -10,7 +10,6 @@ file=$1
 mkdir -p ./.tmp
 mkdir -p ./calanders
 
-curl -i -c "./.tmp/.cookie.txt" "$line"
 
 i=1
 while read line; do
@@ -20,9 +19,10 @@ while read line; do
     FILENAME=$(echo $HREF | rev | cut -d'/' -f1 | rev)
   fi
 
-  wget --cookies=on --load-cookies "./.tmp/.cookie.txt" --keep-session-cookies "$HREF&download=1" -O "./.tmp/$FILENAME.xlsx"
+  echo "Downloading sheet @ '$HREF' ..."
+  wget --cookies=on --keep-session-cookies "$HREF&download=1" -O "./.tmp/$FILENAME.xlsx" --quiet
 
-  python3 main.py "./.tmp/$FILENAME.xlsx" --output "%SUMMARY% -- ($FILENAME).ics" --output_folder "./calanders/" --anchor "$ANCHOR"
+  python3 main.py "./.tmp/$FILENAME.xlsx" --output "%SUMMARY% - %WS_TITLE% -- ($FILENAME).ics" --output_folder "./calanders/" --anchor "$ANCHOR"
+
   i=$((i+1))
-  echo "$ANCHOR $HREF $FILENAME"
 done < "$file"
