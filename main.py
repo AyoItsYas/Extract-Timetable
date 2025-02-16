@@ -53,7 +53,7 @@ PLYM_FORMAT = {
 
 PLYM_FORMAT_2 = {
     "summary_cells": ("B1", "B2"),
-    "dateframe--size": 7,
+    "dateframe--size": 5,
     "dateframe--start_offset": (-1, 0),
     "timeframe--range": (9, 18),
     "data_range--marker": "B",
