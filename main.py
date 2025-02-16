@@ -180,6 +180,7 @@ def extract_data_ranges(worksheet: Worksheet) -> tuple[str, str]:
 def extract_dateframe_start(
     worksheet: Worksheet, data_ranges: Iterable[Iterable[str]]
 ) -> date:
+    print(data_ranges)
     cords = list(data_ranges)[0][0]
 
     cell: Cell = worksheet[cords]
@@ -393,8 +394,10 @@ def main(
             save_path = output_folder or ""
             save_path += output_file if output_file else sanatize_name(summary + ".ics")
 
-            save_path = save_path.replace(r"%SUMMARY%", sanatize_name(summary))
+            save_path = save_path.replace(r"%SUMMARY%", sanatize_name(summary)[:20])
             save_path = save_path.replace(r"%WS_TITLE%", sanatize_name(worksheet.title))
+
+            print(f"Saving to {save_path}")
 
             with open(save_path, "wb+") as file:
                 file.write(calendar.to_ical())
@@ -406,6 +409,7 @@ def main(
             print(
                 f"Error generating iCal from worksheet: {worksheet.title} worksheet might not be a valid timetable or anchors might be mis-matched"
             )
+            raise e
 
     return 0
 
