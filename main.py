@@ -65,6 +65,21 @@ PLYM_FORMAT_2 = {
     "alias_range--offset": (0, 2),
 }
 
+
+PLYM_FORMAT_3 = {
+    "summary_cells": ("B4",),
+    "dateframe--size": 5,
+    "dateframe--start_offset": (-1, 0),
+    "timeframe--range": (9, 18),
+    "data_range--marker": "B",
+    "data_range--marker_pattern": r"\d+",
+    "data_range--point_x_offset": (1, 1),
+    "data_range--point_y_offset": (8, 8),
+    "alias_range--marker": "B",
+    "alias_range--marker_pattern": r"PUSL\d{4}",
+    "alias_range--offset": (0, 2),
+}
+
 NSBM_FOB_FORMAT = {
     "summary_cells": ("A2",),
     "dateframe--size": 5,
@@ -111,6 +126,7 @@ DEFINED_ANCHORS = {
     "NSBM": NSBM_FORMAT,
     "PLYM": PLYM_FORMAT,
     "PLYM_2": PLYM_FORMAT_2,
+    "PLYM_3": PLYM_FORMAT_3,
     "NSBM_FOB": NSBM_FOB_FORMAT,
     "NSBM_FOB_VU": NSBM_FOB_FORMAT_VU,
     "UGC": UGC_FORMAT,
@@ -180,7 +196,6 @@ def extract_data_ranges(worksheet: Worksheet) -> tuple[str, str]:
 def extract_dateframe_start(
     worksheet: Worksheet, data_ranges: Iterable[Iterable[str]]
 ) -> date:
-    print(data_ranges)
     cords = list(data_ranges)[0][0]
 
     cell: Cell = worksheet[cords]
@@ -409,7 +424,6 @@ def main(
             print(
                 f"Error generating iCal from worksheet: {worksheet.title} worksheet might not be a valid timetable or anchors might be mis-matched"
             )
-            raise e
 
     return 0
 
