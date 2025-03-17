@@ -305,6 +305,9 @@ def process_calendar_events(
                     frame_date, end_time
                 )
 
+            if type(cell.value) is str and len(cell.value) <= 2:
+                continue
+
             if cell.value:
                 event = {
                     "summary": summary_formatter(cell.value),
