@@ -15,12 +15,13 @@ if TYPE_CHECKING:
 
 import argparse
 import datetime
+from zoneinfo import ZoneInfo
 import dateutil.parser
 import re
 from datetime import date
 
 import openpyxl
-from icalendar import Calendar, Event
+from icalendar import Calendar, Event, Timezone, TimezoneStandard
 from openpyxl.cell import MergedCell
 
 NSBM_FORMAT = {
@@ -290,7 +291,7 @@ def process_calendar_events(
     datetime_constructor = lambda x, y: datetime.datetime.combine(
         x,
         y,
-        tzinfo=datetime.timezone(datetime.timedelta(hours=5, minutes=30)),
+        tzinfo=ZoneInfo("Asia/Kolkata"),
     )
 
     for frame_date, column in zip(dateframe, data):
@@ -379,8 +380,23 @@ def main(
                 event_format_spec, event, aliases
             )
 
+
+            tz_standard = TimezoneStandard()
+            tz_standard.add("TZOFFSETFROM", datetime.timedelta(hours=5, minutes=30))  # Correct format
+            tz_standard.add("TZOFFSETTO", datetime.timedelta(hours=5, minutes=30))    # Correct format
+            tz_standard.add("TZNAME", "IST")
+            tz_standard.add("DTSTART", datetime.datetime(1970, 1, 1, 0, 0, 0))  # Reference date
+
+            timezone = Timezone()
+            timezone.add("TZID", "Asia/Kolkata")
+            timezone.add("X-LIC-LOCATION", "Asia/Kolkata")
+            timezone.add_component(tz_standard)
+
             calendar = Calendar()
+            calendar.add("prodid", "-//YASIRU//NSBM Timetable//EN")
+            calendar.add("version", "2.0")
             calendar.add("summary", summary)
+            calendar.add_component(timezone)
 
             calendar_events = process_calendar_events(
                 data,
@@ -397,13 +413,20 @@ def main(
                 )
 
             for event_data in calendar_events:
+                now = datetime.datetime.now()
                 text = f"{event_data['dtstart']} {event_data['dtend']} >>> {event_data['summary']}".replace(
                     "\n", " "
                 )
+                print(text)
 
                 event = Event()
+
+                event.add('dtstamp', now)
+                event.add('uid', str(now)+"-yasiru.dharmathilaka@gmail.com")
+
                 for key, value in event_data.items():
                     event.add(key, value)
+
                 calendar.add_component(event)
 
             def sanatize_name(path: str) -> str:
