@@ -77,8 +77,8 @@ PLYM_FORMAT_3 = {
     "data_range--point_x_offset": (1, 1),
     "data_range--point_y_offset": (8, 8),
     "alias_range--marker": "B",
-    "alias_range--marker_pattern": r"PUSL\d{4}",
-    "alias_range--offset": (0, 2),
+    "alias_range--marker_pattern": r'\b([A-Z]{2,6}|Network|C#)\b',
+    "alias_range--offset": (0, 1),
 }
 
 NSBM_FOB_FORMAT = {
@@ -118,9 +118,9 @@ UGC_FORMAT = {
     "data_range--marker_pattern": r"\b\d+\b",
     "data_range--point_x_offset": (1, 1),
     "data_range--point_y_offset": (8, 5),
-    "alias_range--marker": "G",
-    "alias_range--marker_pattern": r"\b[A-Z]+\b",
-    "alias_range--offset": (0, -3),
+    "alias_range--marker": "B",
+    "alias_range--marker_pattern":r'\b[A-Z]{3,5}\b',
+    "alias_range--offset": (0, 1),
 }
 
 DEFINED_ANCHORS = {
@@ -414,10 +414,10 @@ def main(
 
             for event_data in calendar_events:
                 now = datetime.datetime.now()
-                text = f"{event_data['dtstart']} {event_data['dtend']} >>> {event_data['summary']}".replace(
-                    "\n", " "
-                )
-                print(text)
+                # text = f"{event_data['dtstart']} {event_data['dtend']} >>> {event_data['summary']}".replace(
+                #     "\n", " "
+                # )
+                # print(text)
 
                 event = Event()
 
